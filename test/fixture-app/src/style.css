@@ -1,0 +1,4 @@
+body{margin:0;font:18px system-ui;background:#f5f7fb;color:#1b2540}header{display:flex;justify-content:space-between;padding:18px 36px;background:#1b2540;color:#fff}
+nav a{color:#9db4ff;margin-left:16px}main{padding:48px 36px}h1{font-size:44px;margin:0 0 8px}.cards{display:flex;gap:16px;margin-top:32px}
+.cards div{flex:1;padding:40px;background:#fff;border-radius:12px;box-shadow:0 2px 8px #0002}
+.modal{position:fixed;inset:0;background:#000a;display:grid;place-items:center}.box{background:#fff;padding:60px;border-radius:12px;font-size:28px}
