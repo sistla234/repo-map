@@ -128,3 +128,7 @@ server/summary.js     terminal summary
 src/                  React UI (Graph, Actions, Shots, Compare)
 scripts/make-sandbox.sh
 ```
+
+## License
+
+MIT

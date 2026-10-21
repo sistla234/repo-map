@@ -2,6 +2,7 @@
   "name": "repo-map",
   "version": "0.1.0",
   "description": "A visual map of your git repo: branches, PRs and screens as a graph, with safe push/pull/rebase that shows the raw git command.",
+  "license": "MIT",
   "keywords": [
     "git",
     "github",
