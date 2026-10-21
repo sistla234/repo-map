@@ -2,7 +2,35 @@
 
 A local web app that shows a git repo's branches, PRs and **screens** as a graph, compares local vs GitHub, and helps you push, pull and rebase safely. Built for people who think in screens, not diffs — and every action shows the raw git command, so you learn git as you go.
 
-## Setup
+![Repo Map showing a sandbox repo: branches as a time-based graph, coloured by local vs GitHub state](docs/screenshot.png)
+
+## Why
+
+`git log --graph` tells you what happened. It doesn't tell you where you *are*. Repo Map answers the questions you actually have:
+
+- **What's only on my machine?** Orange dots exist locally, blue only on GitHub, grey are shared.
+- **Will this branch merge cleanly?** Each open branch shows whether it's clean, behind main, or would conflict.
+- **What did this branch change, visually?** Screenshots of every route per branch, with a pixel diff between any two points, no Percy or Chromatic setup.
+- **Is it safe to click?** Every action shows the exact git command first and waits for you. It never force-pushes, auto-stashes uncommitted work, and pauses on conflicts.
+
+It's especially handy when AI agents create lots of branches and worktrees and you want to see what they did without reading 40 files.
+
+## Install
+
+```bash
+npm install -g github:sistla234/repo-map
+cd your-repo && repo-map
+```
+
+### As a Claude Code skill
+
+```bash
+mkdir -p ~/.claude/skills/repo-map && cp skill/SKILL.md ~/.claude/skills/repo-map/
+```
+
+Then say "repo map" in any repo.
+
+## Setup (from source)
 
 Requires Node 18+, git, and the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`) for PRs.
 

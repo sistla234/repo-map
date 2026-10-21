@@ -72,6 +72,39 @@ try {
   const meta = JSON.parse(fs.readFileSync(path.join(shotDir(repoName, sha), 'meta.json'), 'utf8'));
   check('with env: deep route had no failed assets', meta.routes.every((r) => r.ok && !r.error));
 
+  // --- 2b. no storage preset: the first-run modal must be dismissed automatically (safe button only)
+  const modal = await capture({ ...baseCfg, env: { VITE_NO_ENTRA_LOGIN: 'true' } });
+  const mmeta = JSON.parse(fs.readFileSync(path.join(shotDir(repoName, sha), 'meta.json'), 'utf8'));
+  // the dismissal persists in the shared browser, so only the first route that shows the modal needs it
+  check('modal: dismissed once with “Skip for now” (never “Start tour”), all routes OK', mmeta.routes.every((r) => r.ok) && mmeta.routes.filter((r) => r.dismissed).length === 1 && mmeta.routes[0].dismissed[0] === 'Skip for now', JSON.stringify(mmeta.routes.map((r) => r.dismissed)));
+  check('modal: job notes record what was dismissed', (modal.notes || []).length === 1 && /Skip for now/.test(modal.notes[0]), JSON.stringify(modal.notes));
+  const mf = path.join(shotDir(repoName, sha), 'home.png');
+  check('modal: screenshot shows the page, not the dialog (less flat than a dark overlay)', flatness(fs.readFileSync(mf)) < 0.9);
+  const withPreset = JSON.parse(fs.readFileSync(path.join(shotDir(repoName, sha), 'meta.json'), 'utf8'));
+  void withPreset;
+
+  // --- 2c. a dialog with no safe button is reported, not silently photographed
+  {
+    const app2 = express();
+    app2.get('/', (_q, res) => res.send('<!doctype html><body style="margin:0;font:20px sans-serif"><h1>Real content here</h1><p>Some text</p><div style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center"><div style="background:#fff;padding:40px"><h2>Pick a plan</h2><button>Continue</button></div></div></body>'));
+    const srv2 = await new Promise((r) => { const s3 = app2.listen(0, '127.0.0.1', () => r(s3)); });
+    const out2 = path.join(tmp, 'out2'); fs.mkdirSync(out2);
+    const r2 = await captureRoutes({ step: '' }, `http://127.0.0.1:${srv2.address().port}`, normalizeConfig({ ...baseCfg, routes: ['/'] }), out2);
+    srv2.close();
+    check('modal: no safe button → warns and never clicks “Continue”', r2[0].ok && /dialog is covering the page/.test(r2[0].warning || '') && !r2[0].dismissed, JSON.stringify(r2[0]));
+  }
+
+  // --- 2d. modern CSS colours (Tailwind v4 `bg-slate-900/50` computes to color-mix/oklab, not rgba) and no role=dialog
+  {
+    const app3 = express();
+    app3.get('/', (_q, res) => res.send('<!doctype html><body style="margin:0;font:20px sans-serif"><h1>Admin home</h1><p>Real page content behind the dialog</p><div id="d" style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center"><div style="position:absolute;inset:0;background:color-mix(in oklab, #0f172a 50%, transparent)"></div><div style="position:relative;background:#fff;padding:40px;border-radius:12px"><h2>Choose your layout</h2><button>Continue</button> <button onclick="document.getElementById(\'d\').remove()">Skip for now</button></div></div></body>'));
+    const srv3 = await new Promise((r) => { const s4 = app3.listen(0, '127.0.0.1', () => r(s4)); });
+    const out3 = path.join(tmp, 'out3'); fs.mkdirSync(out3);
+    const r3 = await captureRoutes({ step: '' }, `http://127.0.0.1:${srv3.address().port}`, normalizeConfig({ ...baseCfg, routes: ['/'] }), out3);
+    srv3.close();
+    check('modal: Tailwind-style (oklab/color-mix, no role) dialog is found and dismissed', r3[0].ok && r3[0].dismissed?.[0] === 'Skip for now', JSON.stringify(r3[0]));
+  }
+
   // --- 3. without the storage preset the first-run modal covers the page, which is still a real page (not blank)
   const hint = envHints(top, [{ error: 'blank: Missing Entra authentication environment variables' }], normalizeConfig(baseCfg));
   check('hint generator: proposes VITE_NO_ENTRA_LOGIN=true', hint[0]?.vars?.VITE_NO_ENTRA_LOGIN === 'true');

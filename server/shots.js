@@ -40,6 +40,7 @@ export function normalizeConfig(c = {}) {
     fullPage: !!c.fullPage,
     env: c.env && typeof c.env === 'object' ? c.env : {},
     storage: { localStorage: c.storage?.localStorage || {}, sessionStorage: c.storage?.sessionStorage || {} },
+    autoDismiss: c.autoDismiss !== false,
     autoCapture: c.autoCapture !== false,
     autoMax: Math.min(20, Math.max(1, Number(c.autoMax) || 8)),
     autoDays: Math.max(1, Number(c.autoDays) || 21),
@@ -83,6 +84,7 @@ export function detectConfig(top, analyzed = analyze(top)) {
 
 export function writeConfig(top, config) {
   const clean = { ...config, routes: normalizeConfig(config).routes.map(({ slug, ...r }) => (r.name === r.path && !r.waitFor ? r.path : r)) };
+  if (clean.autoDismiss !== false) delete clean.autoDismiss;
   if (clean.autoCapture !== false) { delete clean.autoCapture; } if (clean.autoMax === 8) delete clean.autoMax; if (clean.autoDays === 21) delete clean.autoDays;
   if (!Object.keys(clean.storage?.localStorage || {}).length && !Object.keys(clean.storage?.sessionStorage || {}).length) delete clean.storage;
   delete clean.env; if (config.env && Object.keys(config.env).length) clean.env = config.env;
@@ -97,7 +99,7 @@ export function shotsIndex(repoName, shas) {
   const out = {};
   for (const sha of new Set(shas.filter(Boolean))) {
     const m = readMeta(repoName, sha);
-    if (m) out[sha] = { at: m.at, routes: m.routes.map((r) => ({ slug: r.slug, path: r.path, name: r.name, ok: r.ok, error: r.error })), first: (m.routes.find((r) => r.ok) || {}).slug || null };
+    if (m) out[sha] = { at: m.at, routes: m.routes.map((r) => ({ slug: r.slug, path: r.path, name: r.name, ok: r.ok, error: r.error, warning: r.warning, dismissed: r.dismissed })), first: (m.routes.find((r) => r.ok) || {}).slug || null };
   }
   return out;
 }
@@ -240,6 +242,50 @@ export function flatness(buf) {
 
 const ASSET = /\.(m?js|css)(\?|$)/i;
 
+// Runs in the page: is a modal dialog covering it? Marks it with data-rm-dialog and returns a short description.
+const FIND_DIALOG = () => {
+  const vw = innerWidth; const vh = innerHeight;
+  // Alpha of any CSS colour string Chrome may return: rgb/rgba, color(srgb … / a), oklab/oklch/lab/hsl(… / a), transparent.
+  const alpha = (c) => {
+    if (!c || c === 'transparent') return 0;
+    const slash = c.match(/\/\s*([\d.]+)(%?)\s*\)\s*$/);
+    if (slash) return parseFloat(slash[1]) * (slash[2] ? 0.01 : 1);
+    const m = c.match(/^rgba\(([^)]+)\)/);
+    if (m) { const p = m[1].split(/[ ,]+/).filter(Boolean); return p.length > 3 ? Number(p[3]) : 1; }
+    return 1;
+  };
+  const vis = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0; };
+  document.querySelectorAll('[data-rm-dialog]').forEach((e) => e.removeAttribute('data-rm-dialog'));
+  let found = null;
+  for (const el of document.querySelectorAll('*')) {
+    if (!vis(el)) continue;
+    const cs = getComputedStyle(el); const r = el.getBoundingClientRect();
+    const area = (r.width * r.height) / (vw * vh);
+    const role = el.getAttribute('role') === 'dialog' || el.getAttribute('role') === 'alertdialog' || el.getAttribute('aria-modal') === 'true' || el.tagName === 'DIALOG';
+    let isModal = role && area > 0.12;
+    if (!isModal && cs.position === 'fixed' && area >= 0.9 && Number(cs.zIndex) >= 40 && el !== document.body) isModal = true;
+    if (!isModal && cs.position === 'fixed' && area >= 0.9) {
+      const layers = [el, ...el.querySelectorAll('*')].filter((d) => { const b = d.getBoundingClientRect(); const bg = alpha(getComputedStyle(d).backgroundColor); return b.width * b.height >= 0.9 * vw * vh && bg > 0.05 && bg < 0.95; });
+      isModal = layers.length > 0;
+    }
+    if (isModal && (el.innerText || '').trim()) { found = el; break; }
+  }
+  if (!found) return null;
+  found.setAttribute('data-rm-dialog', '1');
+  const h = found.querySelector('h1,h2,h3,h4,[role=heading]');
+  return { title: ((h && h.innerText) || found.innerText || '').trim().split('\n')[0].slice(0, 80) };
+};
+// Only buttons that clearly mean "not now"; never "Continue", "Confirm", "Delete", "Save"...
+const SAFE_DISMISS = ['skip for now', 'skip', 'not now', 'maybe later', 'remind me later', 'later', 'dismiss', 'no thanks', 'no, thanks', 'got it', 'close', '×', '✕', 'x'];
+async function dismissDialog(page) {
+  const labels = await page.evaluate(() => [...document.querySelectorAll('[data-rm-dialog] button, [data-rm-dialog] a, [data-rm-dialog] [role=button]')].map((b, i) => ({ i, t: (b.innerText || b.getAttribute('aria-label') || '').trim() })));
+  let best = null;
+  for (const l of labels) { const k = SAFE_DISMISS.indexOf(l.t.toLowerCase()); if (k >= 0 && (!best || k < best.k)) best = { k, ...l }; }
+  if (!best) return null;
+  await page.evaluate((i) => document.querySelectorAll('[data-rm-dialog] button, [data-rm-dialog] a, [data-rm-dialog] [role=button]')[i].click(), best.i);
+  return best.t;
+}
+
 export async function captureRoutes(job, baseUrl, cfg, outDir) {
   const browser = await launchBrowser();
   const results = [];
@@ -273,6 +319,16 @@ export async function captureRoutes(job, baseUrl, cfg, outDir) {
         await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
         if (r.waitFor) await page.waitForSelector(r.waitFor, { timeout: 15000 });
         await page.waitForTimeout(cfg.waitMs);
+        if (cfg.autoDismiss !== false) {
+          for (let k = 0; k < 3; k++) {
+            const dlg = await page.evaluate(FIND_DIALOG).catch(() => null);
+            if (!dlg) break;
+            const clicked = await dismissDialog(page).catch(() => null);
+            if (!clicked) { entry.warning = `a dialog is covering the page${dlg.title ? ` (“${dlg.title}”)` : ''} and there’s no safe “skip/close” button — add storage presets or a waitFor`; break; }
+            (entry.dismissed ||= []).push(clicked);
+            await page.waitForTimeout(500);
+          }
+        }
         const buf = await page.screenshot({ fullPage: cfg.fullPage });
         fs.writeFileSync(path.join(outDir, `${r.slug}.png`), buf);
         const flat = flatness(buf);
@@ -362,13 +418,15 @@ async function runJob(job) {
     const okN = routes.filter((r) => r.ok).length;
     const bad = routes.filter((r) => !r.ok);
     job.failures = bad.map((r) => ({ path: r.path, error: r.error }));
+    job.warnings = routes.filter((r) => r.ok && r.warning).map((r) => ({ path: r.path, warning: r.warning }));
+    job.notes = routes.filter((r) => r.dismissed?.length).map((r) => `${r.path}: dismissed “${r.dismissed.join('”, “')}”`);
     job.hints = bad.length ? envHints(top, bad, cfg) : [];
     fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify({ sha, at: new Date().toISOString(), configHash: configHash(cfg), viewport: cfg.viewport, routes, hints: job.hints }, null, 2));
     await record(top, { intent: 'screenshot', branch: job.label, cmd: `playwright: ${okN}/${routes.length} routes OK at ${cfg.viewport.width}×${cfg.viewport.height}`, ok: bad.length === 0, output: bad.map((r) => `${r.path}: ${r.error}`).join('\n') });
     if (!okN) fail(`Every route came out blank or broken — ${bad[0].error}`);
     try { fs.rmSync(failFile(repoName, sha), { force: true }); } catch { /* ignore */ }
-    job.state = 'done'; job.warn = bad.length > 0;
-    job.step = bad.length ? `${okN} of ${routes.length} routes OK — ${bad.length} blank or broken` : `Captured ${okN}/${routes.length} routes`;
+    job.state = 'done'; job.warn = bad.length > 0 || job.warnings.length > 0;
+    job.step = bad.length ? `${okN} of ${routes.length} routes OK — ${bad.length} blank or broken` : job.warnings.length ? `Captured ${okN}/${routes.length} routes — ${job.warnings.length} may be covered by a dialog` : `Captured ${okN}/${routes.length} routes`;
   } catch (e) {
     job.state = 'error'; job.error = e.message; job.step = 'Failed';
     if (job.failures?.length && !job.hints) job.hints = envHints(top, job.failures, cfg);

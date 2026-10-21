@@ -143,6 +143,8 @@ function JobRow({ j, open, toggle }) {
       {j.failures?.length > 0 && (
         <div className="jfail">{j.failures.slice(0, open ? 30 : 4).map((f) => <div key={f.path}><code>{f.path}</code> {f.error}</div>)}{!open && j.failures.length > 4 && <div className="muted">…and {j.failures.length - 4} more</div>}</div>
       )}
+      {j.warnings?.length > 0 && <div className="jfail warn">{j.warnings.map((w) => <div key={w.path}>⚠ <code>{w.path}</code> {w.warning}</div>)}</div>}
+      {open && j.notes?.length > 0 && <div className="jfail">{j.notes.map((n) => <div key={n} className="muted">ⓘ {n}</div>)}</div>}
       {j.hints?.length > 0 && (
         <div className="jhints">{j.hints.map((h) => <button key={h.label} className="act primary" onClick={async () => setMsg(await applyHint(h, j))}>{h.label}</button>)}</div>
       )}

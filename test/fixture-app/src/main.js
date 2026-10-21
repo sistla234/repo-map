@@ -15,4 +15,6 @@ const [title, body] = pages[location.pathname] || ['Not found', ''];
 document.getElementById('app').innerHTML = `
   <header><b>Fixture</b><nav><a href="/">Home</a> <a href="/insights/dashboards">Dashboards</a> <a href="/settings">Settings</a></nav></header>
   <main><h1>${title}</h1><p>${body}</p><div class="cards"><div>One</div><div>Two</div><div>Three</div></div></main>
-  ${localStorage.getItem('welcome-seen') === 'true' ? '' : '<div class="modal"><div class="box">Welcome! Take a tour?</div></div>'}`;
+  ${localStorage.getItem('welcome-seen') === 'true' ? '' : '<div class="modal"><div class="box"><div>Welcome! Take a tour?</div><button id="tour">Start tour</button> <button id="skip">Skip for now</button></div></div>'}`;
+
+document.getElementById('skip')?.addEventListener('click', () => { localStorage.setItem('welcome-seen', 'true'); document.querySelector('.modal').remove(); });

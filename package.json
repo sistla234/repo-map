@@ -1,7 +1,30 @@
 {
   "name": "repo-map",
   "version": "0.1.0",
-  "private": true,
+  "description": "A visual map of your git repo: branches, PRs and screens as a graph, with safe push/pull/rebase that shows the raw git command.",
+  "keywords": [
+    "git",
+    "github",
+    "visualization",
+    "branches",
+    "pull-requests",
+    "screenshots",
+    "visual-diff",
+    "claude-code",
+    "skill",
+    "ai-agents"
+  ],
+  "homepage": "https://github.com/sistla234/repo-map#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sistla234/repo-map.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sistla234/repo-map/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "type": "module",
   "bin": {
     "repo-map": "bin/repo-map.js"
@@ -10,7 +33,8 @@
     "dev": "vite",
     "build": "vite build",
     "start": "node bin/repo-map.js",
-    "test": "node test/capture.test.mjs"
+    "test": "node test/capture.test.mjs",
+    "prepare": "vite build"
   },
   "dependencies": {
     "express": "^4.19.2",
