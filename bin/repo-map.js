@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -18,7 +19,10 @@ try {
   process.exit(1);
 }
 
-if (!fs.existsSync(path.join(root, 'node_modules'))) {
+const hasDeps = (() => {
+  try { createRequire(import.meta.url).resolve('express'); return true; } catch { return false; }
+})();
+if (!hasDeps) {
   console.log('Installing dependencies (first run)…');
   execFileSync('npm', ['install'], { cwd: root, stdio: 'inherit' });
 }

@@ -18,9 +18,10 @@ It's especially handy when AI agents create lots of branches and worktrees and y
 ## Install
 
 ```bash
-npm install -g github:sistla234/repo-map
-cd your-repo && repo-map
+cd your-repo && npx github:sistla234/repo-map
 ```
+
+Or install it once with `npm install -g github:sistla234/repo-map` and run `repo-map` in any repo.
 
 ### As a Claude Code skill
 
