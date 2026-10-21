@@ -21,7 +21,7 @@ It's especially handy when AI agents create lots of branches and worktrees and y
 cd your-repo && npx github:sistla234/repo-map
 ```
 
-Or install it once with `npm install -g github:sistla234/repo-map` and run `repo-map` in any repo.
+Requires Node 18+ and git. Install the GitHub CLI and run `gh auth login` to see PRs.
 
 ### As a Claude Code skill
 

@@ -7,7 +7,7 @@ description: Launch Repo Map, a local web app that shows the current git repo's 
 
 Launches Repo Map for the repo you're in, opens it in the browser, and summarizes where things stand.
 
-Requires the `repo-map` command: `npm install -g github:sistla234/repo-map` (Node 18+, git, and optionally the GitHub CLI).
+Runs through `npx github:sistla234/repo-map` (Node 18+, git, and optionally the GitHub CLI). Below, `repo-map` means that command.
 
 ## Steps
 
@@ -21,14 +21,14 @@ Requires the `repo-map` command: `npm install -g github:sistla234/repo-map` (Nod
 
 2. **Restart the server on every invocation** — never reuse an old one (a stale server serves a newer UI and breaks screenshots). Run in the background, because it stays running:
    ```bash
-   repo-map "$PWD" --restart
+   npx --yes github:sistla234/repo-map "$PWD" --restart
    ```
    `--restart` stops only this repo's previous Repo Map server (found through its registry entry in `~/.repo-map/servers/`) and starts a fresh one on the same port when possible. If the user also has an *older* server that predates the registry (it won't be stopped), run `pkill -f "bin/repo-map.js"` first — that stops every Repo Map server on the machine, so say so. Pass another path instead of `$PWD` if the user names a different repo. Add `--no-open` if the browser shouldn't open automatically.
    Read the output for the `→ http://localhost:<port>` URL.
 
 3. **Summarize the current state in the terminal.** Run:
    ```bash
-   repo-map "$PWD" --status
+   npx --yes github:sistla234/repo-map "$PWD" --status
    ```
    (read-only; runs `git fetch`). Relay it briefly: branch, ahead/behind vs GitHub and main, uncommitted changes, open PRs, and the recommended next action.
 
